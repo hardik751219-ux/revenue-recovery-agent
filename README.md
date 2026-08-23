@@ -22,48 +22,18 @@ Two actions:
 
 ## Architecture
 
-\`\`\`
-Synthetic Transactions
-        |
-   [ DETECTOR ]
-   sliding-window failure-rate analysis per (payment_method, route),
-   overlapping windows merged to avoid double-counting one incident
-        |
-  Degradation Alert (with revenue at risk)
-        |
- [ ROOT-CAUSE CLASSIFIER ]
-   majority-vote on failure_reason_code within the alert window
-        |
-  Diagnosis + Confidence Score
-        |
- [ RECOVERY POLICY / BOUND CHECKER ]
-   hard-coded gates, not LLM judgment
-        |
-   REJECTED vs APPROVED
-        |
- REJECTED path:                    APPROVED path:
- never-retry code,                 passed confidence
- not recoverable, or               threshold + eligible
- confidence too low                root cause
-        |                                |
- BLOCKED / ESCALATED          [ AGENT REASONING LAYER ]
- (logged, no action            advisory only - can flag
-  taken)                        caution, cannot override
-                                 the bound checker's approval
-                                        |
-                              [ RAZORPAY TEST-MODE API ]
-                                 real order creation
-                                        |
-                          SUCCESS                FAILURE
-                    verified, logged,       bounded retry (max 2)
-                    revenue counted                |
-                    as recovered            graceful abandonment,
-                                              no infinite loop
-                          |                          |
-                          -----------  ---------------
-                                    |
-                       AUDIT LOG + BATCH METRICS
-\`\`\`
+**Flow:** Synthetic Transactions → Detector → Root-Cause Classifier → Recovery Policy (Bound Checker) → Agent Reasoning Layer → Razorpay API → Audit Log
+
+1. **Detector** — sliding-window failure-rate analysis per (payment_method, route). Overlapping windows are merged so one incident isn't double-counted as multiple alerts.
+2. **Root-Cause Classifier** — majority-vote on `failure_reason_code` within the alert window, producing a diagnosis and a confidence score.
+3. **Recovery Policy / Bound Checker** — hard-coded gates, not LLM judgment. Every alert is either:
+   - **Rejected** → `BLOCKED` (never-retry code) or `ESCALATED` (not recoverable, or confidence below threshold) — logged, no action taken.
+   - **Approved** → passes to the reasoning layer.
+4. **Agent Reasoning Layer** — advisory only. Can flag caution (borderline confidence, mixed signal, high amount) but cannot override the bound checker's approval.
+5. **Razorpay Test-Mode API** — real order creation for approved actions.
+   - **Success** → verified, logged, revenue counted as recovered.
+   - **Failure** → bounded retry (max 2 attempts) → graceful abandonment, no infinite loop.
+6. **Audit Log + Batch Metrics** — every decision (approved, blocked, or escalated) is recorded with its reason.
 
 ## Why this architecture
 
