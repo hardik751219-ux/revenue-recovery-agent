@@ -1,0 +1,50 @@
+[
+  {
+    "timestamp": "2026-08-23T09:52:41.263663+00:00",
+    "payment_method": "wallet",
+    "route": "route_b",
+    "root_cause": "INVALID_VPA",
+    "confidence": 0.6,
+    "revenue_at_risk": 11786.29,
+    "affected_count": 5,
+    "agent_reasoning": null,
+    "agent_flagged": false,
+    "status": "ESCALATED",
+    "reason": "not_recoverable_type",
+    "action_taken": "notify_customer",
+    "revenue_recovered": 0
+  },
+  {
+    "timestamp": "2026-08-23T09:52:41.263663+00:00",
+    "payment_method": "wallet",
+    "route": "route_b",
+    "root_cause": "TIMEOUT",
+    "confidence": 0.4,
+    "revenue_at_risk": 12372.03,
+    "affected_count": 5,
+    "agent_reasoning": null,
+    "agent_flagged": false,
+    "status": "ESCALATED",
+    "reason": "confidence_below_threshold (0.4 < 0.5)",
+    "action_taken": null,
+    "revenue_recovered": 0
+  },
+  {
+    "timestamp": "2026-08-23T09:52:41.263663+00:00",
+    "payment_method": "upi",
+    "route": "route_a",
+    "root_cause": "ROUTE_DEGRADED",
+    "confidence": 0.58,
+    "revenue_at_risk": 25896.28,
+    "affected_count": 12,
+    "agent_reasoning": "Proceeding as approved, with noted caution: confidence (0.58) is only marginally above the action threshold; root cause diagnosis is based on a mixed signal ({'TIMEOUT': 5, 'ROUTE_DEGRADED': 7}), not a strong majority; revenue at risk (\u20b925,896.28) is high relative to diagnosis confidence (0.58).",
+    "agent_flagged": true,
+    "status": "APPROVED",
+    "reason": "passed_all_bounds",
+    "action_taken": "reroute",
+    "razorpay_order_id": "order_TTAVDlFg0MpjPI",
+    "execution_status": "order_created",
+    "revenue_recovered": 25896.28,
+    "attempt_number": 1
+  }
+]

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Revenue Recovery Agent</title>
+<style>
+  :root {
+    --rzp-blue: #3395FF;
+    --bg-dark: #0A0A0A;
+    --card-bg: #141414;
+    --border: #2A2A2A;
+    --text-primary: #F5F5F5;
+    --text-secondary: #9A9A9A;
+    --success: #2ECC71;
+    --warning: #F5A623;
+    --danger: #E74C3C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 40px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+  }
+  h1 { font-size: 24px; font-weight: 600; }
+  h1 span { color: var(--rzp-blue); }
+  .subtitle { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
+  .btn-group { display: flex; gap: 12px; }
+  button {
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  #runBtn { background: var(--rzp-blue); color: #fff; }
+  #regenBtn {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .metric-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .metric-label { color: var(--text-secondary); font-size: 13px; margin-bottom: 8px; }
+  .metric-value { font-size: 28px; font-weight: 700; }
+  .metric-value.blue { color: var(--rzp-blue); }
+  .metric-value.green { color: var(--success); }
+  .metric-value.warn { color: var(--warning); }
+
+  .panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .panel-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left;
+    color: var(--text-secondary);
+    font-weight: 500;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 12px 8px; border-bottom: 1px solid var(--border); }
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.APPROVED { background: rgba(46, 204, 113, 0.15); color: var(--success); }
+  .badge.ESCALATED { background: rgba(245, 166, 35, 0.15); color: var(--warning); }
+  .badge.BLOCKED { background: rgba(231, 76, 60, 0.15); color: var(--danger); }
+  .badge.RECOVERY_ABANDONED { background: rgba(231, 76, 60, 0.15); color: var(--danger); }
+  .badge.RETRY_SCHEDULED { background: rgba(245, 166, 35, 0.15); color: var(--warning); }
+
+  .empty-state {
+    color: var(--text-secondary);
+    font-size: 14px;
+    padding: 40px 0;
+    text-align: center;
+  }
+  .order-link { color: var(--rzp-blue); font-family: monospace; font-size: 12px; }
+
+  .agent-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-dark);
+    padding: 8px 12px;
+    border-radius: 4px;
+  }
+  .agent-note b { color: var(--text-primary); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Revenue <span>Recovery</span> Agent</h1>
+    <div class="subtitle">Detect payment degradation, diagnose root cause, execute bounded recovery</div>
+  </div>
+  <div class="btn-group">
+    <button id="regenBtn" onclick="regenerateData()">Regenerate Data</button>
+    <button id="runBtn" onclick="runRecovery()">Run Recovery Pipeline</button>
+  </div>
+</header>
+
+<div class="metrics">
+  <div class="metric-card">
+    <div class="metric-label">Total Revenue at Risk</div>
+    <div class="metric-value warn" id="atRisk">₹—</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Revenue Recovered</div>
+    <div class="metric-value green" id="recovered">₹—</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Recovery Rate</div>
+    <div class="metric-value blue" id="rate">—%</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Decisions Made</div>
+    <div class="metric-value" id="decisions">—</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">Audit Trail</div>
+  <div id="tableWrap">
+    <div class="empty-state">Click "Run Recovery Pipeline" to detect and process revenue at risk</div>
+  </div>
+</div>
+
+<script>
+async function regenerateData() {
+  const btn = document.getElementById('regenBtn');
+  btn.disabled = true;
+  btn.textContent = "Generating...";
+
+  const res = await fetch('/transactions/regenerate', { method: 'POST' });
+  const data = await res.json();
+
+  btn.disabled = false;
+  btn.textContent = "Regenerate Data";
+
+  document.getElementById('atRisk').textContent = '₹—';
+  document.getElementById('recovered').textContent = '₹—';
+  document.getElementById('rate').textContent = '—%';
+  document.getElementById('decisions').textContent = '—';
+  document.getElementById('tableWrap').innerHTML = `<div class="empty-state">New batch of ${data.total_transactions} transactions generated (${data.failed_transactions} failed). Click "Run Recovery Pipeline" to process.</div>`;
+}
+
+async function runRecovery() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = "Running...";
+
+  try {
+    const res = await fetch('/recovery/run', { method: 'POST' });
+    const data = await res.json();
+    renderSummary(data.summary);
+    renderTable(data.audit_log);
+  } catch (e) {
+    document.getElementById('tableWrap').innerHTML = '<div class="empty-state">Error running pipeline — check server logs</div>';
+  }
+
+  btn.disabled = false;
+  btn.textContent = "Run Recovery Pipeline";
+}
+
+function renderSummary(s) {
+  document.getElementById('atRisk').textContent = '₹' + s.total_revenue_at_risk.toLocaleString('en-IN');
+  document.getElementById('recovered').textContent = '₹' + s.total_revenue_recovered.toLocaleString('en-IN');
+  document.getElementById('rate').textContent = s.recovery_rate_pct + '%';
+  const totalDecisions = Object.values(s.status_breakdown).reduce((a,b) => a+b, 0);
+  document.getElementById('decisions').textContent = totalDecisions;
+}
+
+function renderTable(log) {
+  if (!log.length) {
+    document.getElementById('tableWrap').innerHTML = '<div class="empty-state">No degradation events detected in this batch</div>';
+    return;
+  }
+
+  let rows = log.map(d => `
+    <tr>
+      <td><span class="badge ${d.status}">${d.status}</span></td>
+      <td>${d.payment_method} / ${d.route}</td>
+      <td>${d.root_cause}</td>
+      <td>${(d.confidence * 100).toFixed(0)}%</td>
+      <td>${d.reason}</td>
+      <td>₹${d.revenue_at_risk.toLocaleString('en-IN')}</td>
+      <td>₹${d.revenue_recovered.toLocaleString('en-IN')}</td>
+      <td>${d.razorpay_order_id ? `<span class="order-link">${d.razorpay_order_id}</span>` : '—'}</td>
+    </tr>
+    ${d.agent_reasoning ? `
+    <tr>
+      <td></td>
+      <td colspan="7" style="padding-top:0; padding-bottom:16px;">
+        <div class="agent-note" style="border-left: 3px solid ${d.agent_flagged ? 'var(--warning)' : 'var(--rzp-blue)'};">
+          <b>🤖 Agent reasoning${d.agent_flagged ? ' (flagged)' : ''}:</b> ${d.agent_reasoning}
+        </div>
+      </td>
+    </tr>` : ''}
+  `).join('');
+
+  document.getElementById('tableWrap').innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th><th>Segment</th><th>Root Cause</th><th>Confidence</th>
+          <th>Reason</th><th>At Risk</th><th>Recovered</th><th>Order ID</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+</script>
+
+</body>
+</html>
