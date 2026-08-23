@@ -21,49 +21,49 @@ Two actions:
 - **Run Recovery Pipeline** — runs the full detect→diagnose→decide→execute loop and shows the audit trail, including a real Razorpay test-mode order for any approved recovery
 
 ## Architecture
+
+\`\`\`
 Synthetic Transactions
-        ↓
+        |
    [ DETECTOR ]
    sliding-window failure-rate analysis per (payment_method, route),
    overlapping windows merged to avoid double-counting one incident
-        ↓
+        |
   Degradation Alert (with revenue at risk)
-        ↓
+        |
  [ ROOT-CAUSE CLASSIFIER ]
    majority-vote on failure_reason_code within the alert window
-        ↓
+        |
   Diagnosis + Confidence Score
-        ↓
+        |
  [ RECOVERY POLICY / BOUND CHECKER ]
    hard-coded gates, not LLM judgment
-        ↓
-   ┌────────────┴────────────┐
-   ↓                          ↓
- REJECTED                  APPROVED
- (never-retry code,        (passed confidence
-  not recoverable, or       threshold + eligible
-  confidence too low)       root cause)
-   ↓                          ↓
- BLOCKED / ESCALATED    [ AGENT REASONING LAYER ]
- (logged, no action        advisory only — can flag
-  taken)                    caution, cannot override
-                             the bound checker's approval
-                                    ↓
-                          [ RAZORPAY TEST-MODE API ]
-                             real order creation
-                                    ↓
-                    ┌───────────────┴───────────────┐
-                    ↓                                 ↓
-                 SUCCESS                           FAILURE
-            verified, logged,               bounded retry (max 2)
-            revenue counted                        ↓
-            as recovered                  graceful abandonment,
-                                            no infinite loop
-                    ↓                                 ↓
-                    └───────────────┬───────────────┘
-                                    ↓
+        |
+   REJECTED vs APPROVED
+        |
+ REJECTED path:                    APPROVED path:
+ never-retry code,                 passed confidence
+ not recoverable, or               threshold + eligible
+ confidence too low                root cause
+        |                                |
+ BLOCKED / ESCALATED          [ AGENT REASONING LAYER ]
+ (logged, no action            advisory only - can flag
+  taken)                        caution, cannot override
+                                 the bound checker's approval
+                                        |
+                              [ RAZORPAY TEST-MODE API ]
+                                 real order creation
+                                        |
+                          SUCCESS                FAILURE
+                    verified, logged,       bounded retry (max 2)
+                    revenue counted                |
+                    as recovered            graceful abandonment,
+                                              no infinite loop
+                          |                          |
+                          -----------  ---------------
+                                    |
                        AUDIT LOG + BATCH METRICS
-
+\`\`\`
 
 ## Why this architecture
 
